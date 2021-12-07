@@ -2867,7 +2867,9 @@ Value is list (stack token-start token-type in-what)."
                (while (and stack (eq (car (car stack)) '->))
                  (erlang-pop stack))
                (if (and stack (memq (car (car stack)) '(icr begin fun try maybe)))
-                   (erlang-pop stack))))
+                   (erlang-pop stack)))
+               (while (and stack (eq (car (car stack)) '++))
+                 (erlang-pop stack)))
             ((looking-at "catch\\b.*of")
              t)
             ((looking-at "catch\\b\\s *\\($\\|%\\|.*->\\)")
@@ -2981,6 +2983,12 @@ Value is list (stack token-start token-type in-what)."
         (forward-char 1)
         (if (and stack (eq (car (car stack)) '::))
             ;; Type or spec
+            (erlang-pop stack))
+        (while (and stack (eq (car (car stack)) '++))
+            ;; String concat
+            (erlang-pop stack))
+        (if (and stack (eq (car (car stack)) '=))
+            ;; Equal sign
             (erlang-pop stack)))
 
        ;; Function end
@@ -2993,6 +3001,18 @@ Value is list (stack token-start token-type in-what)."
         (if (and stack (eq (car (car stack)) 'when))
             (erlang-pop stack))
         (erlang-push (list '-> token (current-column)) stack)
+        (forward-char 2))
+
+       ;; Equal sign EOL
+       ((looking-at "= *$")
+        (erlang-push (list '= token (current-column)) stack)
+        (forward-char 1))
+
+       ;; String concat EOL
+       ((looking-at "++ *$")
+        (unless (and stack (eq (car (car stack)) '++))
+          ;; Only indent once for ++
+          (erlang-push (list '++ token (current-column)) stack))
         (forward-char 2))
 
        ;; List-comprehension divider
